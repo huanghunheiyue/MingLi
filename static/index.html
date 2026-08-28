@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>明礼 MingLi · 明代历史文化科普智能体</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="bg-pattern"></div>
+<header class="topbar">
+  <div class="logo"><span class="seal">明</span><span class="brand">明礼·MingLi</span></div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="couplet">挽联</button>
+    <button class="tab" data-tab="poem">怀古诗</button>
+    <button class="tab" data-tab="elegiac_prose">祭文</button>
+    <button class="tab" data-tab="meme">梗文</button>
+    <button class="tab" data-tab="history">历史</button>
+  </nav>
+  <button class="history-toggle" id="historyToggle" title="历史记录">📜</button>
+</header>
+<section class="hero">
+  <h1>明礼·MingLi</h1>
+  <p class="subtitle">以现代之心 · 悼古人之怀</p>
+  <p class="signature">—— 明代历史文化科普智能体 ——</p>
+</section>
+<main class="container">
+<main class="container">
+<section class="panel active" id="panel-couplet">
+  <h2 class="panel-title"><span>挽</span>联</h2>
+  <p class="panel-desc">对历史人物敬挽之情，藏于一联之中。</p>
+  <form id="form-couplet" class="gen-form">
+    <label><span>人物</span><select name="subject" required></select></label>
+    <label><span>关系</span>
+      <select name="relation">
+        <option>臣</option><option>民</option><option>友</option>
+        <option>学生</option><option>同乡</option>
+        <option value="后人" selected>后人</option>
+      </select>
+    </label>
+    <label><span>场合</span>
+      <select name="occasion">
+        <option>忌日</option><option>纪念日</option>
+        <option>凭吊</option><option>诞辰</option>
+      </select>
+    </label>
+    <button type="submit" class="btn-seal">生成挽联</button>
+  </form>
+</section>
+<section class="panel" id="panel-poem">
+  <h2 class="panel-title"><span>怀</span>古诗</h2>
+  <p class="panel-desc">凭吊往事，寄托深思；格律词牌，一键成篇。</p>
+  <form id="form-poem" class="gen-form">
+    <label><span>事件</span><select name="subject" required></select></label>
+    <label><span>诗体</span>
+      <select name="poem_type">
+        <option>七律</option><option>七绝</option>
+        <option>五律</option><option>五绝</option>
+        <option>满江红</option><option>念奴娇</option>
+        <option>水调歌头</option><option>永遇乐</option>
+      </select>
+    </label>
+    <label><span>人物（可选）</span><input type="text" name="person" placeholder="如：于谦"></label>
+    <button type="submit" class="btn-seal">生成怀古诗</button>
+  </form>
+</section>
+<section class="panel" id="panel-elegiac_prose">
+  <h2 class="panel-title"><span>祭</span>文</h2>
+  <p class="panel-desc">祭酒陈情，以慰英灵；典雅端庄，归于思政。</p>
+  <form id="form-elegiac_prose" class="gen-form">
+    <label><span>人物</span><select name="subject" required></select></label>
+    <label><span>字数</span>
+      <select name="length">
+        <option value="200">200 字</option>
+        <option value="500" selected>500 字</option>
+        <option value="1000">1000 字</option>
+      </select>
+    </label>
+    <label><span>作者身份</span>
+      <select name="author_role">
+        <option>后人</option><option>同乡</option>
+        <option>学生</option><option>同僚</option><option>史官</option>
+      </select>
+    </label>
+    <button type="submit" class="btn-seal">生成祭文</button>
+  </form>
+</section>
+<section class="panel" id="panel-meme">
+  <h2 class="panel-title"><span>梗</span>文</h2>
+  <p class="panel-desc">网感与温度并存，致敬而不戏谑，以史为鉴。</p>
+
+  <!-- 一键随机生成（不选任何主体） -->
+  <div class="quick-meme-bar">
+    <button type="button" id="meme-quick-btn" class="btn-quick-meme">
+      🎲 一键随机生成悼明梗文
+    </button>
+    <span class="muted">无须选主体，系统随机抽梗元素与历史人物</span>
+  </div>
+
+  <details class="quick-options">
+    <summary>高级选项（可选）</summary>
+    <form id="form-meme" class="gen-form">
+      <label><span>人物/事件（留空则随机）</span><input type="text" name="subject" placeholder="如：戚继光（留空则随机）"></label>
+      <label><span>风格</span>
+        <select name="tone" id="meme-tone">
+          <option value="">（随机）</option>
+          <option value="致敬">致敬</option>
+          <option value="惋惜">惋惜</option>
+          <option value="反思">反思</option>
+          <option value="戏谑">戏谑</option>
+          <option value="咏史">咏史</option>
+        </select>
+      </label>
+      <label><span>长度</span>
+        <select name="length" id="meme-length">
+          <option value="">（随机）</option>
+          <option value="短">短</option>
+          <option value="中" selected>中</option>
+          <option value="长">长</option>
+        </select>
+      </label>
+      <label class="full"><span>补充说明</span><input type="text" name="hint" placeholder="如：从教育视角切入"></label>
+      <button type="submit" class="btn-seal">自定义生成</button>
+    </form>
+  </details>
+
+  <!-- 悼明之作·跨界梗 -->
+  <details class="quick-options crossover-options">
+    <summary>🎭 悼明之作·跨界梗（把任意文化作品考据为明代遗珍）</summary>
+    <p class="crossover-tip">
+      输入<strong>与明朝毫无关系</strong>的文化作品（动漫 / 游戏 / 影视 / 小说 / 流行语），<br>
+      系统将以明清史官考据口吻，<strong>一本正经地论证该作品实为明代真实历史遗产</strong>。<br>
+      <em>—— 表面越严肃越好笑，绝不承认是胡扯。</em>
+    </p>
+    <form id="form-crossover" class="gen-form">
+      <label class="full"><span>文化作品名称 <em class="req">*</em></span>
+        <input type="text" name="work_name" required maxlength="80"
+               placeholder="如：《进击的巨人》《原神》《让子弹飞》《三体》《超级马里奥》">
+      </label>
+      <label class="full"><span>作品元素 / 角色 / 道具 / 台词 <em class="opt">(可选)</em></span>
+        <input type="text" name="work_desc" maxlength="400"
+               placeholder="如：城墙上的艾伦、立体机动装置、巨人变身；空则由系统联想 1-3 个标志元素">
+      </label>
+      <label class="full"><span>强行联系的明代人物 / 事件 <em class="opt">(留空随机)</em></span>
+        <input type="text" name="subject" maxlength="40"
+               placeholder="如：戚继光 / 倭寇、郑和 / 七下西洋、王阳明 / 龙场悟道">
+      </label>
+      <label><span>文体</span>
+        <select name="tone">
+          <option value="考据" selected>考据（史官考据风，最地道）</option>
+          <option value="奏疏">奏疏（大臣奏折风）</option>
+          <option value="圣谕">圣谕（皇帝圣旨风）</option>
+          <option value="县志">县志（地方志风）</option>
+        </select>
+      </label>
+      <label><span>长度</span>
+        <select name="length">
+          <option value="短">短 (80-150 字)</option>
+          <option value="中" selected>中 (180-280 字)</option>
+          <option value="长">长 (320-480 字)</option>
+        </select>
+      </label>
+      <label class="full"><span>补充说明 <em class="opt">(可选)</em></span>
+        <input type="text" name="hint" placeholder="如：重点论证其军事技术源头；语言偏文言">
+      </label>
+      <button type="submit" class="btn-seal btn-crossover">🎭 考据为明代遗珍</button>
+    </form>
+  </details>
+
+  <div class="meme-preview" id="memePreview" hidden>
+    <p class="meme-preview-label">本次抽中的梗元素</p>
+    <blockquote class="meme-preview-text" id="memePreviewText"></blockquote>
+    <p class="meme-preview-meta"><span id="memePreviewSource"></span> · <span id="memePreviewCategory"></span></p>
+  </div>
+</section>
+<section class="panel" id="panel-history">
+  <h2 class="panel-title"><span>历</span>史</h2>
+  <p class="panel-desc">回顾生成记录，温故而知新。</p>
+  <div id="historyList" class="history-list">
+    <p class="muted">暂无历史记录，开始第一次创作吧。</p>
+  </div>
+</section>
+<section class="result" id="result" hidden>
+  <article class="result-card">
+    <header class="result-header">
+      <h3 id="resultTitle"></h3>
+      <button class="close-btn" id="closeResult">×</button>
+    </header>
+    <div class="result-horizontal" id="resultHorizontal" hidden></div>
+    <div class="result-body" id="resultBody"></div>
+    <div class="result-meta">
+      <div class="tags" id="resultTags"></div>
+      <div class="sources" id="resultSources"></div>
+    </div>
+    <footer class="result-footer">
+      <div class="rating">
+        <span>评分：</span>
+        <span class="stars" id="stars">
+          <button data-v="1">☆</button><button data-v="2">☆</button>
+          <button data-v="3">☆</button><button data-v="4">☆</button>
+          <button data-v="5">☆</button>
+        </span>
+      </div>
+      <button class="btn-print" id="printBtn">🖨 打印</button>
+    </footer>
+  </article>
+</section>
+</main>
+<aside class="hint-box" id="hintBox">
+  <p class="hint-label">以史为鉴</p>
+  <p class="hint-quote" id="hintQuote">知行合一，此心光明，亦复何言。</p>
+  <p class="hint-author" id="hintAuthor">—— 王阳明</p>
+</aside>
+<footer class="footer">
+  <p>明礼 MingLi · 第十届全国高校易班技术创新大会 · 智能体应用类</p>
+  <p class="muted">© 2026 致敬明人 · 以史为鉴 · 弘扬中华优秀传统文化</p>
+</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>
