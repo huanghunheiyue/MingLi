@@ -4,9 +4,14 @@
 
 「明礼 MingLi」是一款以"网络悼明梗"为外壳、以中华优秀传统文化科普为内核的 AIGC 应用。基于 FastAPI 后端 + 纯原生前端，调用大模型 API 自动生成明代历史文化相关的挽联、怀古诗、祭文、梗文。
 
-🎉 **桌面版（EXE）**：无需 Python 环境，双击 `dist\MingLi.exe` 即可启动！详见 [README_EXE.md](./README_EXE.md)。
+🚀 **桌面 EXE 一键体验**：[Releases 页面下载 `MingLi.exe`](https://github.com/huanghunheiyue/MingLi/releases/download/v1.0.0/MingLi.exe) （40 MB，Windows 双击即用）
+
+🎉 **桌面版（EXE）**：无需 Python 环境，双击即可启动！详见 [README_EXE.md](./README_EXE.md)。
 
 ![明礼 MingLi](https://img.shields.io/badge/明礼-MingLi-8b1a1a?style=flat-square) ![Python](https://img.shields.io/badge/Python-3.11+-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
+
+---
+
 
 ---
 
