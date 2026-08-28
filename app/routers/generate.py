@@ -1,0 +1,173 @@
+"""
+文案生成路由
+- POST /api/generate        非流式
+- POST /api/generate/stream 流式 (SSE)
+- GET  /api/subjects?type=eulogy
+"""
+import json
+import time
+import asyncio
+from datetime import datetime
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+
+from ..models import GenerateRequest, GenerateResponse
+from .. import storage
+from ..prompts import build_prompt
+from ..knowledge_base import list_subjects, get_context_for_subject
+from ..llm_client import client, parse_json_or_text
+from ..security import is_prompt_injection, prompt_injection_block_message, looks_like_hijacked_output, assess_generated_text, incomplete_error_message
+from ..rate_limit import GENERATE_LIMITER
+
+router = APIRouter()
+
+
+def _client_key(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return (request.client.host if request.client else "anon")
+
+
+@router.get("/api/subjects")
+async def subjects(content_type: str = Query("couplet", alias="type")):
+    """返回该类型下可选的 subject 列表"""
+    items = list_subjects(content_type)
+    return {"content_type": content_type, "subjects": items}
+
+
+@router.post("/api/generate", response_model=GenerateResponse)
+async def generate(req: GenerateRequest, request: Request):
+    t0 = time.time()
+
+    # 限流
+    rl = GENERATE_LIMITER.check(_client_key(request))
+    if not rl["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "请求过于频繁，请稍后再试。",
+                "remaining": rl["remaining"],
+                "retryAfterSeconds": rl["retryAfterSeconds"],
+            },
+        )
+
+    # 注入检测
+    if is_prompt_injection(req.subject):
+        raise HTTPException(status_code=400, detail=prompt_injection_block_message("subject"))
+
+    ctx = get_context_for_subject(req.subject)
+    prompt_params = {
+        "relation": req.relation,
+        "occasion": req.occasion,
+        "poem_type": req.poem_type,
+        "person": req.person,
+        "length": req.length,
+        "author_role": req.author_role,
+        "tone": req.tone,
+        "length_meme": req.meme_length,
+    }
+    prompt = build_prompt(req.content_type, ctx, req.subject, **prompt_params)
+
+    try:
+        # reasoning 模型需要足够 token 生成 think + JSON，max_tokens 给到 8000
+        raw = await client.chat(prompt, temperature=0.85, max_tokens=8000)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM 调用失败：{e}")
+
+    # 输出质量校验
+    if looks_like_hijacked_output(req.subject, raw):
+        raise HTTPException(status_code=400, detail=incomplete_error_message("hijack"))
+    reason = assess_generated_text(raw, min_length=20)
+    if reason:
+        raise HTTPException(status_code=502, detail=incomplete_error_message(reason))
+
+    parsed = parse_json_or_text(raw)
+    record = {
+        "content_type": req.content_type,
+        "subject": req.subject,
+        "title": parsed.get("title", f"{req.subject}·生成结果"),
+        "body": parsed.get("body", raw),
+        "horizontal": parsed.get("horizontal", ""),
+        "tags": parsed.get("tags", []),
+        "sources": parsed.get("sources", [f"知识库:{req.subject}"]),
+        "note": parsed.get("note", ""),
+    }
+    elapsed = int((time.time() - t0) * 1000)
+    record["elapsed_ms"] = elapsed
+    saved = storage.save_history(record)
+
+    return GenerateResponse(
+        id=saved["id"],
+        content_type=saved["content_type"],
+        subject=saved["subject"],
+        title=saved["title"],
+        body=saved["body"],
+        horizontal=saved.get("horizontal", ""),
+        tags=saved.get("tags", []),
+        sources=saved.get("sources", []),
+        note=saved.get("note", ""),
+        elapsed_ms=elapsed,
+        created_at=saved["created_at"],
+    )
+
+
+@router.post("/api/generate/stream")
+async def generate_stream(req: GenerateRequest, request: Request):
+    """SSE 流式输出"""
+    # 限流
+    rl = GENERATE_LIMITER.check(_client_key(request))
+    if not rl["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail={"error": "请求过于频繁，请稍后再试。", "retryAfterSeconds": rl["retryAfterSeconds"]},
+        )
+
+    if is_prompt_injection(req.subject):
+        raise HTTPException(status_code=400, detail=prompt_injection_block_message("subject"))
+
+    ctx = get_context_for_subject(req.subject)
+    prompt_params = {
+        "relation": req.relation,
+        "occasion": req.occasion,
+        "poem_type": req.poem_type,
+        "person": req.person,
+        "length": req.length,
+        "author_role": req.author_role,
+        "tone": req.tone,
+        "length_meme": req.meme_length,
+    }
+    prompt = build_prompt(req.content_type, ctx, req.subject, **prompt_params)
+
+    async def event_gen():
+        buffer = []
+        try:
+            # reasoning 模型需要足够 token 生成 think + JSON，max_tokens 给到 8000
+            async for chunk in client.stream_chat(prompt, temperature=0.85, max_tokens=8000):
+                buffer.append(chunk)
+                yield f"data: {json.dumps({'delta': chunk}, ensure_ascii=False)}\n\n"
+            full_text = "".join(buffer)
+            if looks_like_hijacked_output(req.subject, full_text):
+                yield f"data: {json.dumps({'error': incomplete_error_message('hijack')}, ensure_ascii=False)}\n\n"
+                return
+            reason = assess_generated_text(full_text, min_length=20)
+            if reason:
+                yield f"data: {json.dumps({'error': incomplete_error_message(reason)}, ensure_ascii=False)}\n\n"
+                return
+            parsed = parse_json_or_text(full_text)
+            record = {
+                "content_type": req.content_type,
+                "subject": req.subject,
+                "title": parsed.get("title", f"{req.subject}·生成结果"),
+                "body": parsed.get("body", full_text),
+                "horizontal": parsed.get("horizontal", ""),
+                "tags": parsed.get("tags", []),
+                "sources": parsed.get("sources", [f"知识库:{req.subject}"]),
+                "note": parsed.get("note", ""),
+            }
+            saved = storage.save_history(record)
+            yield f"data: {json.dumps({'done': True, 'id': saved['id'], 'title': saved['title'], 'tags': saved.get('tags', []), 'sources': saved.get('sources', [])}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
