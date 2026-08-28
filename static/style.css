@@ -1,0 +1,482 @@
+/* =========================================
+   明礼 MingLi · 古风美学样式
+   主色：墨黑 / 水墨灰 / 宣纸白 / 印章红
+   ========================================= */
+:root {
+  --ink-black: #1a1a1a;
+  --ink-gray: #4a4a4a;
+  --paper: #f5f0e8;
+  --paper-deep: #e8e0d0;
+  --seal-red: #8b1a1a;
+  --seal-red-light: #b54a4a;
+  --line: rgba(74, 74, 74, 0.18);
+  --shadow: 0 4px 20px rgba(26, 26, 26, 0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: 'Noto Serif SC', 'STZhongsong', 'SimSun', serif;
+  background: var(--paper);
+  color: var(--ink-black);
+  line-height: 1.75;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.bg-pattern {
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(139, 26, 26, 0.025) 0%, transparent 25%),
+    radial-gradient(circle at 80% 70%, rgba(26, 26, 26, 0.025) 0%, transparent 25%);
+  background-size: 200px 200px;
+  pointer-events: none;
+  z-index: 0;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 36px;
+  background: rgba(245, 240, 232, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.logo { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+.seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: var(--seal-red);
+  color: var(--paper);
+  font-family: 'Ma Shan Zheng', 'STKaiti', serif;
+  font-size: 22px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(139, 26, 26, 0.35);
+}
+.brand { font-size: 18px; letter-spacing: 2px; }
+.tabs { display: flex; gap: 4px; }
+.tab {
+  background: transparent;
+  border: none;
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ink-gray);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.25s;
+}
+.tab:hover { color: var(--ink-black); background: rgba(139, 26, 26, 0.06); }
+.tab.active { color: var(--paper); background: var(--ink-black); }
+.history-toggle {
+  background: transparent;
+  border: 1px solid var(--line);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.history-toggle:hover { border-color: var(--seal-red); transform: rotate(15deg); }
+.hero {
+  text-align: center;
+  padding: 72px 24px 48px;
+  position: relative;
+}
+.hero h1 {
+  font-family: 'Ma Shan Zheng', serif;
+  font-size: 64px;
+  letter-spacing: 8px;
+  color: var(--ink-black);
+  font-weight: 400;
+}
+.subtitle { margin-top: 14px; font-size: 18px; color: var(--ink-gray); letter-spacing: 4px; }
+.signature { margin-top: 12px; font-size: 13px; color: var(--seal-red); letter-spacing: 2px; }
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+.panel {
+  display: none;
+  background: rgba(255, 252, 245, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.4s ease;
+}
+.panel.active { display: block; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.panel-title {
+  font-family: 'Ma Shan Zheng', serif;
+  font-size: 32px;
+  margin-bottom: 8px;
+  font-weight: 400;
+  letter-spacing: 4px;
+}
+.panel-title span { color: var(--seal-red); padding: 0 4px; }
+.panel-desc { color: var(--ink-gray); margin-bottom: 28px; font-size: 14px; }
+.gen-form { display: grid; gap: 18px; }
+.gen-form label { display: flex; flex-direction: column; gap: 8px; }
+.gen-form label > span:first-child {
+  font-size: 14px;
+  color: var(--ink-gray);
+  letter-spacing: 1px;
+}
+.gen-form select,
+.gen-form input {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 252, 245, 0.9);
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ink-black);
+  border-radius: 4px;
+  outline: none;
+  transition: border 0.2s;
+}
+.gen-form select:focus,
+.gen-form input:focus { border-color: var(--seal-red); }
+.btn-seal {
+  margin-top: 12px;
+  padding: 14px 32px;
+  background: var(--ink-black);
+  color: var(--paper);
+  border: 2px solid var(--ink-black);
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.btn-seal:hover {
+  background: var(--seal-red);
+  border-color: var(--seal-red);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(139, 26, 26, 0.35);
+}
+.btn-seal:disabled {
+  background: var(--ink-gray);
+  border-color: var(--ink-gray);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 一键随机生成 */
+.quick-meme-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  margin: 18px 0 22px;
+  background: linear-gradient(135deg, rgba(139, 26, 26, 0.06), rgba(139, 26, 26, 0.02));
+  border: 1px dashed rgba(139, 26, 26, 0.35);
+  border-radius: 8px;
+}
+.btn-quick-meme {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 26px;
+  background: var(--seal-red);
+  color: var(--paper);
+  border: none;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(139, 26, 26, 0.32);
+  transition: all 0.25s;
+}
+.btn-quick-meme:hover {
+  background: var(--seal-red-light);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(139, 26, 26, 0.45);
+}
+.btn-quick-meme:disabled {
+  background: var(--ink-gray);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.quick-options {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.quick-options summary {
+  cursor: pointer;
+  color: var(--ink-gray);
+  font-size: 14px;
+  padding: 6px 0;
+  letter-spacing: 1px;
+  user-select: none;
+}
+.quick-options summary:hover { color: var(--seal-red); }
+
+.meme-preview {
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: rgba(245, 240, 232, 0.6);
+  border-left: 3px solid var(--seal-red);
+  border-radius: 4px;
+}
+.meme-preview-label {
+  font-size: 12px;
+  color: var(--ink-gray);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.meme-preview-text {
+  font-family: 'Ma Shan Zheng', 'STKaiti', serif;
+  font-size: 22px;
+  color: var(--seal-red);
+  margin-bottom: 6px;
+}
+.meme-preview-meta {
+  font-size: 13px;
+  color: var(--ink-gray);
+  letter-spacing: 1px;
+}
+
+.result { margin-top: 32px; animation: fadeUp 0.4s ease; }
+.result-card {
+  background: rgba(255, 252, 245, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 36px 40px;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.result-card::before {
+  content: '';
+  position: absolute;
+  top: 16px; left: 16px;
+  right: 16px; bottom: 16px;
+  border: 1px solid rgba(139, 26, 26, 0.18);
+  border-radius: 4px;
+  pointer-events: none;
+}
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+.result-header h3 {
+  font-family: 'Ma Shan Zheng', serif;
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 4px;
+  color: var(--ink-black);
+}
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  color: var(--ink-gray);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+.close-btn:hover { color: var(--seal-red); }
+.result-horizontal {
+  text-align: center;
+  font-family: 'Ma Shan Zheng', serif;
+  font-size: 22px;
+  color: var(--seal-red);
+  margin-bottom: 18px;
+  letter-spacing: 12px;
+}
+.result-body {
+  font-size: 17px;
+  line-height: 2;
+  white-space: pre-wrap;
+  color: var(--ink-black);
+  min-height: 80px;
+}
+.result-meta {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+}
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag {
+  background: rgba(139, 26, 26, 0.08);
+  color: var(--seal-red);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+.sources { color: var(--ink-gray); font-style: italic; }
+.result-footer {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.rating { display: flex; align-items: center; gap: 10px; }
+.stars button {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: var(--ink-gray);
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 0 2px;
+}
+.stars button.filled { color: var(--seal-red); }
+.stars button:hover { color: var(--seal-red-light); }
+.btn-print {
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+.btn-print:hover { border-color: var(--seal-red); color: var(--seal-red); }
+.history-list { display: grid; gap: 14px; }
+.history-item {
+  background: rgba(255, 252, 245, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.history-item:hover { border-color: var(--seal-red); transform: translateX(4px); }
+.history-item h4 { font-size: 16px; margin-bottom: 4px; font-weight: 500; }
+.history-item .meta { font-size: 12px; color: var(--ink-gray); }
+.muted { color: var(--ink-gray); font-size: 13px; }
+.hint-box {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  max-width: 280px;
+  background: rgba(26, 26, 26, 0.94);
+  color: var(--paper);
+  padding: 18px 22px;
+  border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
+  z-index: 50;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+.hint-box:hover { transform: translateY(-3px); }
+.hint-label {
+  font-family: 'Ma Shan Zheng', serif;
+  color: var(--seal-red-light);
+  font-size: 16px;
+  margin-bottom: 6px;
+  letter-spacing: 3px;
+}
+.hint-quote { font-size: 14px; line-height: 1.7; }
+.hint-author {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(245, 240, 232, 0.7);
+  text-align: right;
+}
+.footer {
+  text-align: center;
+  padding: 36px 24px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-gray);
+  font-size: 13px;
+}
+.footer .muted { margin-top: 6px; font-size: 12px; }
+@media (max-width: 768px) {
+  .topbar { padding: 12px 18px; flex-wrap: wrap; gap: 10px; }
+  .tabs { order: 3; width: 100%; justify-content: space-around; flex-wrap: wrap; }
+  .tab { padding: 6px 12px; font-size: 14px; }
+  .hero { padding: 48px 16px 32px; }
+  .hero h1 { font-size: 44px; letter-spacing: 4px; }
+  .panel { padding: 24px 22px; }
+  .panel-title { font-size: 26px; }
+  .result-card { padding: 24px 22px; }
+  .result-header h3 { font-size: 22px; }
+  .hint-box { right: 12px; bottom: 12px; max-width: 220px; padding: 14px 18px; }
+}
+@media (max-width: 375px) {
+  .hero h1 { font-size: 36px; }
+  .panel { padding: 20px 16px; }
+  .gen-form select, .gen-form input { font-size: 14px; }
+}
+@media print {
+  .topbar, .footer, .hint-box, .history-toggle, .result-footer, .panel { display: none !important; }
+  .result { margin: 0; }
+  .result-card { box-shadow: none; border: none; }
+  .result-card::before { border: none; }
+}
+
+/* ===== 悼明之作·跨界梗 ===== */
+.crossover-options {
+  border-top: 2px dashed var(--seal-red);
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.crossover-options summary {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--seal-red);
+}
+.crossover-tip {
+  background: #fff8e7;
+  border: 1px dashed #c8a55b;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 10px 0 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-gray);
+}
+.crossover-tip strong { color: var(--seal-red); }
+.req { color: var(--seal-red); font-style: normal; font-weight: 700; }
+.opt { color: #999; font-style: normal; font-size: 11px; margin-left: 4px; }
+.btn-crossover {
+  background: linear-gradient(135deg, var(--seal-red), #6b0e0e);
+  letter-spacing: 2px;
+}
+.btn-crossover:hover {
+  background: linear-gradient(135deg, #6b0e0e, var(--seal-red));
+}
+.meme-note {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f5f0e1;
+  border-left: 3px solid #c8a55b;
+  font-size: 12px;
+  color: var(--ink-gray);
+  font-style: italic;
+}
