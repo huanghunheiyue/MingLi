@@ -507,6 +507,34 @@ MING_DATA = {
 }
 
 
+# 知识图谱（延迟加载）
+_KG = None
+def _kg():
+    global _KG
+    if _KG is None:
+        from .kg_data import get_kg
+        _KG = get_kg()
+    return _KG
+
+
+# 知识图谱与人物/事件库的实体类型映射
+_KG_TYPE_ALIAS = {
+    "历史人物": "历史人物",
+    "人物": "历史人物",
+    "figure": "历史人物",
+    "历史事件": "历史事件",
+    "事件": "历史事件",
+    "event": "历史事件",
+    "战争": "战争",
+    "作品": "作品",
+    "文化": "作品",
+    "地点": "地点",
+    "法律": "法律",
+    "其它": "其它",
+    "历史时期": "历史时期",
+}
+
+
 def get_figure(name: str):
     return FIGURES.get(name)
 
@@ -515,19 +543,85 @@ def get_event(name: str):
     return EVENTS.get(name)
 
 
-def list_subjects(content_type: str) -> list:
-    """根据文案类型返回可选主题列表"""
-    if content_type in ("eulogy", "elegiac_prose", "couplet", "poem", "funeral_oration"):
-        return sorted(FIGURES.keys())
-    if content_type == "historical_event":
-        return sorted(EVENTS.keys())
-    if content_type == "meme":
-        return sorted(FIGURES.keys()) + sorted(EVENTS.keys())
-    return sorted(FIGURES.keys()) + sorted(EVENTS.keys())
+def list_subjects(content_type: str = "", type_filter: str = "") -> list:
+    """根据文案类型返回可选主题列表
+
+    Args:
+        content_type: eulogy/couplet/poem/funeral_oration/elegiac_prose/
+                      historical_event/meme/'' — 旧接口按文案类型返回
+        type_filter: 历史人物/历史事件/战争/作品/地点/法律/历史时期 —
+                     按知识图谱实体类型返回（'' 跳过 KG）
+    """
+    base = sorted(FIGURES.keys()) + sorted(EVENTS.keys())
+    if content_type in ("eulogy", "elegiac_prose", "couplet", "poem",
+                        "funeral_oration"):
+        base = sorted(FIGURES.keys())
+    elif content_type == "historical_event":
+        base = sorted(EVENTS.keys())
+
+    if not type_filter:
+        return base
+
+    # type_filter 给出时优先按 KG 类型返回（精选库优先，其余追加）
+    alias = _KG_TYPE_ALIAS.get(type_filter, type_filter)
+    kg_items = _kg().list_entities_by_type(alias)
+    seen = set(base)
+    merged = list(base)
+    for it in kg_items:
+        if it not in seen:
+            seen.add(it)
+            merged.append(it)
+    return merged
 
 
-def get_context_for_subject(subject: str, max_chars=None):
-    """获取某个主题的上下文，供 Prompt 使用，可选截断"""
+def search_subjects(keyword: str, limit: int = 20) -> list:
+    """按关键词在知识图谱中搜索主题，按度数（被关系连接数）排序"""
+    if not keyword:
+        return []
+    return _kg().search_entities(keyword, limit=limit)
+
+
+def _format_kg_relations(subject: str, max_chars: int = 1500,
+                         max_triples: int = 20) -> str:
+    """把知识图谱中与 subject 相关的三元组格式化为文本，供 Prompt 附加"""
+    kg = _kg()
+    if not kg.is_loaded:
+        return ""
+    entity_type = kg.get_entity_type(subject)
+    if not entity_type:
+        return ""
+    triples = kg.get_relations(subject, limit=max_triples * 2)
+    if not triples:
+        return ""
+    lines = [f"\n【知识图谱补充】{subject}（{entity_type}）相关史实："]
+    budget = max_chars
+    count = 0
+    for t in triples:
+        head = f"{t['RA']} {t['relationship']} {t['RB']}"
+        desc = t.get('description', '').strip()
+        if desc:
+            line = f"- {head}：{desc}"
+        else:
+            line = f"- {head}"
+        if len(line) > budget and count >= 5:
+            break
+        lines.append(line)
+        budget -= len(line)
+        count += 1
+        if count >= max_triples:
+            break
+    return "\n".join(lines)
+
+
+def get_context_for_subject(subject: str, max_chars=None,
+                            include_kg: bool = True):
+    """获取某个主题的上下文，供 Prompt 使用，可选截断
+
+    Args:
+        subject: 主题名
+        max_chars: 总字符上限
+        include_kg: 是否附加知识图谱相关三元组（默认 True）
+    """
     if subject in FIGURES:
         f = FIGURES[subject]
         text = (
@@ -551,7 +645,19 @@ def get_context_for_subject(subject: str, max_chars=None):
             f"思政升华：{e.get('reflection')}\n"
         )
     else:
-        text = f"主题：{subject}\n（暂无详细背景，请基于明代历史文化宏观把握）"
+        # 完全在 KG 中（不在 FIGURES/EVENTS）：纯 KG 上下文
+        kg_text = _format_kg_relations(subject, max_chars=1500) if include_kg else ""
+        if kg_text:
+            text = f"主题：{subject}\n（精选库暂无档案，以下为知识图谱史实）\n{kg_text}"
+        else:
+            text = f"主题：{subject}\n（暂无详细背景，请基于明代历史文化宏观把握）"
+
+    # 已有精选库档案 + 追加 KG 补充
+    if include_kg and subject in (set(FIGURES) | set(EVENTS)):
+        kg_text = _format_kg_relations(subject, max_chars=1200, max_triples=15)
+        if kg_text:
+            text += kg_text
+
     if max_chars and len(text) > max_chars:
         text = text[:max_chars].rstrip() + "\n…（上下文截断）"
     return text

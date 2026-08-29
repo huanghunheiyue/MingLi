@@ -92,8 +92,33 @@ class LLMClient:
         self.max_retries = settings.LLM_MAX_RETRIES
 
     def _headers(self) -> dict:
+        api_key = (self.cfg.get("api_key") or "").strip()
+        # 检测常见占位符（空 / 未替换的模板）
+        placeholders = ("", "sk-your-", "your-", "sk-cp-your", "placeholder", "xxx", "XXXX")
+        is_placeholder = (
+            not api_key
+            or any(api_key.startswith(p) for p in placeholders if p)
+            or "your-" in api_key.lower()
+            or "key-here" in api_key.lower()
+            or api_key.endswith("-key-here")
+        )
+        if is_placeholder:
+            provider = self.cfg.get("model") or self.provider
+            raise RuntimeError(
+                f"❌ API Key 未配置：当前使用 LLM_PROVIDER={self.provider}（模型 {provider}），"
+                f"但 {self.provider.upper()}_API_KEY 为空或仍是模板占位符。\n"
+                f"👉 修复方法：\n"
+                f"   1. 在项目根目录创建 .env 文件（可复制 .env.example）\n"
+                f"   2. 找到 {self.provider.upper()}_API_KEY= 这一行，把后面替换成你的真实密钥\n"
+                f"   3. 保存后重启 MingLi.exe\n"
+                f"📌 申请密钥：\n"
+                f"   - DeepSeek（推荐·便宜）: https://platform.deepseek.com/\n"
+                f"   - 通义千问: https://bailian.console.aliyun.com/\n"
+                f"   - 豆包: https://www.volcengine.com/product/doubao\n"
+                f"   - MiniMax: https://platform.minimaxi.com/user-center/payment/token-plan"
+            )
         return {
-            "Authorization": f"Bearer {self.cfg['api_key']}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
 
@@ -128,6 +153,9 @@ class LLMClient:
                     if not content.strip() and msg.get("reasoning_content"):
                         content = msg["reasoning_content"]
                     return _strip_thinking(content)
+            except RuntimeError:
+                # 业务异常（如 API Key 未配置）直接抛，不重试
+                raise
             except Exception as e:
                 last_err = e
         raise RuntimeError(f"LLM 调用失败：{last_err}")
