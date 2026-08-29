@@ -22,6 +22,32 @@ from ..rate_limit import GENERATE_LIMITER
 router = APIRouter()
 
 
+
+def _format_body(parsed: dict, content_type: str, fallback: str) -> str:
+    """把 LLM 解析结果格式化为人类可读的文本 body
+
+    - couplet: 上下联 + 横批 + 创作思路（因为 prompt JSON 没有 body 字段）
+    - 其他: 直接用 parsed["body"] 字段
+    - fallback: 解析失败时用原始 markdown 文本
+    """
+    if content_type == "couplet":
+        parts = []
+        if parsed.get("upper"):
+            parts.append(f"上联：{parsed['upper']}")
+        if parsed.get("lower"):
+            parts.append(f"下联：{parsed['lower']}")
+        if parsed.get("horizontal"):
+            parts.append(f"横批：{parsed['horizontal']}")
+        if parsed.get("note"):
+            parts.append(f"\n创作思路：{parsed['note']}")
+        return "\n".join(parts) if parts else fallback
+    # 其他 content_type (poem/elegiac/meme) 已经有 body 字段
+    body = parsed.get("body")
+    if body:
+        return body
+    return fallback
+
+
 def _client_key(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -106,7 +132,7 @@ async def generate(req: GenerateRequest, request: Request):
         "content_type": req.content_type,
         "subject": req.subject,
         "title": parsed.get("title", f"{req.subject}·生成结果"),
-        "body": parsed.get("body", raw),
+        "body": _format_body(parsed, req.content_type, raw),
         "horizontal": parsed.get("horizontal", ""),
         "tags": parsed.get("tags", []),
         "sources": parsed.get("sources", [f"知识库:{req.subject}"]),
@@ -184,14 +210,14 @@ async def generate_stream(req: GenerateRequest, request: Request):
                 "content_type": req.content_type,
                 "subject": req.subject,
                 "title": parsed.get("title", f"{req.subject}·生成结果"),
-                "body": parsed.get("body", full_text),
+                "body": _format_body(parsed, req.content_type, full_text),
                 "horizontal": parsed.get("horizontal", ""),
                 "tags": parsed.get("tags", []),
                 "sources": parsed.get("sources", [f"知识库:{req.subject}"]),
                 "note": parsed.get("note", ""),
             }
             saved = storage.save_history(record)
-            yield f"data: {json.dumps({'done': True, 'id': saved['id'], 'title': saved['title'], 'tags': saved.get('tags', []), 'sources': saved.get('sources', [])}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'done': True, 'id': saved['id'], 'title': saved['title'], 'body': saved['body'], 'tags': saved.get('tags', []), 'sources': saved.get('sources', [])}, ensure_ascii=False)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 

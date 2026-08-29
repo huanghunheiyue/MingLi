@@ -277,6 +277,10 @@ async function submitForm(type, form) {
           if (ev.done) {
             meta = ev;
             document.getElementById('resultTitle').textContent = ev.title || payload.subject;
+            // 后端已完成格式化（upper/lower/horizontal/note 拼接为可读文本），用 ev.body 替换 markdown 原文
+            if (ev.body) {
+              document.getElementById('resultBody').textContent = ev.body;
+            }
             currentHistoryId = ev.id;
             const tags = ev.tags || [];
             document.getElementById('resultTags').innerHTML =
