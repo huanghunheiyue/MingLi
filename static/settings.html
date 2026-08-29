@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设置 · API 配置中心 · 明礼 MingLi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/settings.css">
+</head>
+<body class="settings-body">
+<div class="bg-pattern"></div>
+<header class="settings-header">
+  <a href="/" class="back-link">← 返回首页</a>
+  <h1><span class="seal-mini">⚙</span> API 配置中心</h1>
+  <div class="header-status">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">加载中...</span>
+  </div>
+</header>
+
+<main class="settings-main">
+  <!-- 当前激活状态卡片 -->
+  <section class="active-card" id="activeCard">
+    <div class="active-card-left">
+      <span class="active-card-label">当前激活</span>
+      <span class="active-card-provider" id="activeProviderName">--</span>
+    </div>
+    <div class="active-card-right">
+      <div class="active-card-model">
+        模型：<span id="activeModel">--</span>
+      </div>
+      <div class="active-card-key">
+        密钥：<span id="activeKeyState">--</span>
+      </div>
+      <div class="active-card-file">
+        <span title=".env 文件路径">📁 <span id="envPath">--</span></span>
+        <button class="btn-icon" id="copyEnvPath" title="复制 .env 路径">📋</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 提供商列表 -->
+  <section class="providers-section">
+    <h2 class="section-title">提供商列表</h2>
+    <p class="section-hint">选择一个提供商，填入 API Key、Base URL 和模型名。点击「测试连接」验证后再保存。</p>
+    <div id="providerList" class="provider-list">
+      <div class="loading">加载中...</div>
+    </div>
+  </section>
+
+  <!-- 编辑表单（点击提供商卡片后展开） -->
+  <section class="edit-section" id="editSection" style="display:none">
+    <div class="edit-header">
+      <h2>编辑：<span id="editProviderName">--</span></h2>
+      <button class="btn-close" id="closeEdit">×</button>
+    </div>
+
+    <form id="providerForm" class="provider-form">
+      <input type="hidden" id="editProviderId">
+
+      <div class="form-row">
+        <label for="apiKey">API Key</label>
+        <div class="input-with-toggle">
+          <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off">
+          <button type="button" class="btn-icon" id="toggleKeyVisibility" title="显示/隐藏">👁</button>
+          <button type="button" class="btn-icon" id="pasteKey" title="粘贴">📋</button>
+        </div>
+        <div class="hint" id="apiKeyHint">留空表示不修改现有密钥</div>
+      </div>
+
+      <div class="form-row">
+        <label for="baseUrl">Base URL</label>
+        <input type="text" id="baseUrl" placeholder="https://api.example.com/v1">
+        <div class="hint" id="baseUrlHint">OpenAI 兼容协议的 API 根地址</div>
+      </div>
+
+      <div class="form-row">
+        <label for="modelName">模型名</label>
+        <div class="input-with-suggestions">
+          <input type="text" id="modelName" placeholder="模型标识，如 gpt-4o-mini" list="modelSuggestions">
+          <datalist id="modelSuggestions"></datalist>
+        </div>
+        <div class="hint" id="modelHint">从上方候选列表选择，或手动输入</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="testBtn">
+          <span class="btn-icon-text">🔌</span> 测试连接
+        </button>
+        <button type="button" class="btn btn-secondary" id="useAsActiveBtn">
+          ★ 设为默认
+        </button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">
+          💾 保存配置
+        </button>
+      </div>
+
+      <div class="test-result" id="testResult" style="display:none"></div>
+    </form>
+
+    <details class="provider-docs" id="providerDocs">
+      <summary>📖 该提供商的获取说明</summary>
+      <div class="docs-content" id="docsContent"></div>
+    </details>
+  </section>
+
+  <!-- 帮助 -->
+  <section class="help-section">
+    <details>
+      <summary>💡 常见问题</summary>
+      <ul class="help-list">
+        <li><strong>如何获取 API Key？</strong> 见各提供商卡片下方的「📖 获取说明」</li>
+        <li><strong>必须重启 EXE 吗？</strong> 不需要！保存后会自动热更新，立即生效。</li>
+        <li><strong>支持哪些协议？</strong> 任何 OpenAI 兼容协议（<code>/v1/chat/completions</code>），包括 OneAPI、NewAPI、FastGPT 等中转服务。</li>
+        <li><strong>本地 Ollama</strong>：API Key 留空即可，Base URL 用 <code>http://localhost:11434/v1</code></li>
+        <li><strong>多个提供商</strong>：可以同时配置多个，切换时只需点不同提供商的「★ 设为默认」</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script src="/static/settings.js"></script>
+</body>
+</html>

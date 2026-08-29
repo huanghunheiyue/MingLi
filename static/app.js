@@ -20,6 +20,72 @@ const TYPE_TO_SUBJECT_TYPE = {
 let currentRating = 0;
 let currentHistoryId = null;
 
+// ============ 友好错误提示 ============
+function _escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/**
+ * 渲染"API Key 未配置"引导卡片。
+ * @param {string} message - 后端返回的详细说明（含 emoji 和换行）
+ */
+function _showApiKeyMissingGuide(message) {
+  const body = document.getElementById('resultBody');
+  if (!body) return;
+  // 把后端多行字符串转成 <ol>/<ul> 友好格式
+  const html = `
+    <div class="api-key-guide">
+      <div class="api-key-guide-header">
+        <span class="api-key-guide-icon">🔑</span>
+        <h3>首次使用：需要配置 API Key</h3>
+      </div>
+      <pre class="api-key-guide-detail">${_escapeHtml(message)}</pre>
+      <div class="api-key-guide-steps">
+        <p><strong>📝 三步完成配置：</strong></p>
+        <ol>
+          <li>用记事本打开 <code>.env</code> 文件（位于 MingLi.exe 同级目录）</li>
+          <li>找到 <code>DEEPSEEK_API_KEY=</code> 这一行，把后面替换成你的密钥</li>
+          <li>保存后<strong>重新双击 MingLi.exe</strong>启动即可</li>
+        </ol>
+        <p class="muted">💡 密钥申请地址（任选一家）：
+          <a href="https://platform.deepseek.com/" target="_blank">DeepSeek（推荐·便宜）</a> ·
+          <a href="https://bailian.console.aliyun.com/" target="_blank">通义千问</a> ·
+          <a href="https://platform.minimaxi.com/user-center/payment/token-plan" target="_blank">MiniMax</a>
+        </p>
+        <p style="text-align:center;margin-top:1rem">
+          <a href="/settings" class="btn-primary" style="display:inline-block;padding:0.6rem 1.5rem;border-radius:4px;text-decoration:none;color:#fff;background:#8b2a1f">⚙️ 打开 API 配置中心</a>
+        </p>
+      </div>
+    </div>
+  `;
+  body.innerHTML = html;
+  document.getElementById('result').hidden = false;
+}
+
+/**
+ * 统一处理 generate 路由的错误响应
+ */
+async function _handleGenerateError(resp, fallbackPrefix = '生成失败') {
+  let detail = '';
+  let apiKeyMissing = false;
+  try {
+    const data = await resp.json();
+    detail = typeof data.detail === 'string'
+      ? data.detail
+      : (data.detail?.message || JSON.stringify(data.detail));
+    if (data.detail?.error === 'api_key_missing' || /API Key 未配置/i.test(detail)) {
+      apiKeyMissing = true;
+    }
+  } catch {
+    try { detail = await resp.text(); } catch {}
+  }
+  if (apiKeyMissing) {
+    _showApiKeyMissingGuide(detail);
+  } else {
+    document.getElementById('resultBody').textContent = `${fallbackPrefix}：${detail || resp.statusText}`;
+  }
+}
+
 // ============ DOM 初始化 ============
 document.addEventListener('DOMContentLoaded', () => {
   // Tab 切换
@@ -66,6 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 默认填充挽联下拉
   loadSubjects('couplet');
+
+  // 绑定知识图谱切换按钮
+  bindKgToggles();
 });
 
 // ============ Tab 切换 ============
@@ -79,14 +148,25 @@ function switchTab(name) {
 }
 
 // ============ 加载主题列表 ============
-async function loadSubjects(type) {
+// 每个面板/按钮跟踪当前 entity_type，方便"知识图谱"切换
+const _panelSubjectState = new WeakMap();
+
+async function loadSubjects(type, scope = null) {
   try {
-    const r = await fetch(`/api/subjects?type=${type}`);
+    // scope 是可选的 Element 上下文（表示限定到某面板的 select）
+    let url = `/api/subjects?type=${encodeURIComponent(type)}`;
+    const stateKey = scope || document;
+    const cur = _panelSubjectState.get(stateKey) || {};
+    if (cur.entityType) url += `&entity_type=${encodeURIComponent(cur.entityType)}`;
+    const r = await fetch(url);
     const data = await r.json();
     const subjects = data.subjects || [];
-    // 填充所有面板的 subject 下拉
-    document.querySelectorAll('.gen-form select[name="subject"]').forEach(sel => {
-      const cur = sel.value;
+
+    const targets = scope
+      ? [scope.querySelector('select[name="subject"]')].filter(Boolean)
+      : document.querySelectorAll('.gen-form select[name="subject"]');
+    targets.forEach(sel => {
+      const prev = sel.value;
       sel.innerHTML = '';
       subjects.forEach(s => {
         const opt = document.createElement('option');
@@ -94,11 +174,45 @@ async function loadSubjects(type) {
         opt.textContent = s;
         sel.appendChild(opt);
       });
-      if (cur && subjects.includes(cur)) sel.value = cur;
+      if (prev && subjects.includes(prev)) sel.value = prev;
     });
+
+    // 记录当前状态
+    _panelSubjectState.set(stateKey, { entityType: cur.entityType || '' });
+
+    // 控制台提示 KG 统计
+    if (data.kg_loaded && data.kg_stats) {
+      const k = data.kg_stats;
+      console.log(`[KG] 已加载：${k.entities} 实体 / ${k.relationships} 关系 / ${k.relation_types} 关系类型`);
+    }
   } catch (e) {
     console.error('loadSubjects failed:', e);
   }
+}
+
+// 绑定"📚 知识图谱"切换按钮
+function bindKgToggles() {
+  document.querySelectorAll('.kg-toggle').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const entity = btn.dataset.entity;
+      // 找到最近的 .gen-form 容器，作为 scope
+      const form = btn.closest('.gen-form');
+      if (!form) return;
+      // 找到当前面板 type（通过最近 panel id 映射）
+      const panel = btn.closest('.panel');
+      let type = 'couplet';
+      if (panel && panel.id) {
+        type = TYPE_TO_SUBJECT_TYPE[panel.id.replace('panel-', '')] || panel.id.replace('panel-', '');
+      }
+      // 切换状态
+      const cur = _panelSubjectState.get(form) || {};
+      const next = (cur.entityType === entity) ? '' : entity;
+      _panelSubjectState.set(form, { entityType: next });
+      btn.classList.toggle('active', !!next);
+      btn.textContent = next ? `📚 ${entity} (已启用)` : '📚 知识图谱';
+      await loadSubjects(type, form);
+    });
+  });
 }
 
 // ============ 表单提交（流式） ============
@@ -130,9 +244,7 @@ async function submitForm(type, form) {
       body: JSON.stringify(payload),
     });
     if (!resp.ok) {
-      const t = await resp.text();
-      document.getElementById('resultBody').textContent = '生成失败：' + t;
-      return;
+      await _handleGenerateError(resp, '生成失败'); return;
     }
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -151,7 +263,12 @@ async function submitForm(type, form) {
         try {
           const ev = JSON.parse(raw);
           if (ev.error) {
-            document.getElementById('resultBody').textContent = '生成失败：' + ev.error;
+            const msg = ev.error.message || ev.error;
+            if (typeof msg === 'string' && /API Key 未配置/i.test(msg)) {
+              _showApiKeyMissingGuide(msg);
+            } else {
+              document.getElementById('resultBody').textContent = '生成失败：' + msg;
+            }
             return;
           }
           if (ev.delta) {
@@ -274,8 +391,7 @@ async function quickMeme() {
       body: JSON.stringify(payload),
     });
     if (!r.ok) {
-      const t = await r.text();
-      document.getElementById('resultBody').textContent = '生成失败：' + t;
+      await _handleGenerateError(r, '生成失败');
       return;
     }
     const data = await r.json();
@@ -345,8 +461,7 @@ async function submitCrossover(form) {
     });
     const data = await r.json();
     if (!r.ok) {
-      document.getElementById('resultBody').textContent =
-        '生成失败：' + (data.detail?.error || data.detail || r.statusText);
+      await _handleGenerateError(r, '生成失败');
       document.getElementById('result').hidden = false;
       return;
     }

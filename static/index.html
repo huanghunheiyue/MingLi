@@ -21,6 +21,7 @@
     <button class="tab" data-tab="history">历史</button>
   </nav>
   <button class="history-toggle" id="historyToggle" title="历史记录">📜</button>
+  <a href="/settings" class="settings-link" title="API 配置中心">⚙️</a>
 </header>
 <section class="hero">
   <h1>明礼·MingLi</h1>
@@ -33,7 +34,12 @@
   <h2 class="panel-title"><span>挽</span>联</h2>
   <p class="panel-desc">对历史人物敬挽之情，藏于一联之中。</p>
   <form id="form-couplet" class="gen-form">
-    <label><span>人物</span><select name="subject" required></select></label>
+    <label class="full"><span>人物</span>
+      <div class="subject-row">
+        <select name="subject" required></select>
+        <button type="button" class="kg-toggle" data-entity="历史人物" title="从知识图谱加载更多历史人物">📚 知识图谱</button>
+      </div>
+    </label>
     <label><span>关系</span>
       <select name="relation">
         <option>臣</option><option>民</option><option>友</option>
@@ -54,7 +60,12 @@
   <h2 class="panel-title"><span>怀</span>古诗</h2>
   <p class="panel-desc">凭吊往事，寄托深思；格律词牌，一键成篇。</p>
   <form id="form-poem" class="gen-form">
-    <label><span>事件</span><select name="subject" required></select></label>
+    <label class="full"><span>事件</span>
+      <div class="subject-row">
+        <select name="subject" required></select>
+        <button type="button" class="kg-toggle" data-entity="历史事件" title="从知识图谱加载更多历史事件">📚 知识图谱</button>
+      </div>
+    </label>
     <label><span>诗体</span>
       <select name="poem_type">
         <option>七律</option><option>七绝</option>
@@ -71,7 +82,12 @@
   <h2 class="panel-title"><span>祭</span>文</h2>
   <p class="panel-desc">祭酒陈情，以慰英灵；典雅端庄，归于思政。</p>
   <form id="form-elegiac_prose" class="gen-form">
-    <label><span>人物</span><select name="subject" required></select></label>
+    <label class="full"><span>人物</span>
+      <div class="subject-row">
+        <select name="subject" required></select>
+        <button type="button" class="kg-toggle" data-entity="历史人物" title="从知识图谱加载更多历史人物">📚 知识图谱</button>
+      </div>
+    </label>
     <label><span>字数</span>
       <select name="length">
         <option value="200">200 字</option>

@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse
 
 from .config import settings
 from .models import HealthResponse
-from .routers import generate, history, feedback
+from .routers import generate, history, feedback, settings as settings_router
 from .routers.meme import router as meme_router
 
 
@@ -62,6 +62,15 @@ async def index():
     return {"msg": "明礼 MingLi is running. Place index.html under static/."}
 
 
+@app.get("/settings")
+async def settings_page():
+    """配置中心页面"""
+    settings_file = settings.STATIC_DIR / "settings.html"
+    if settings_file.exists():
+        return FileResponse(settings_file)
+    return {"msg": "settings.html not found"}
+
+
 @app.get("/api/health", response_model=HealthResponse)
 async def health():
     return HealthResponse(
@@ -71,11 +80,19 @@ async def health():
     )
 
 
+@app.get("/api/knowledge-graph/stats")
+async def knowledge_graph_stats():
+    """返回知识图谱加载状态与统计信息，供前端展示"""
+    from .knowledge_base import _kg
+    return _kg().stats
+
+
 # 注册路由
 app.include_router(generate.router)
 app.include_router(history.router)
 app.include_router(feedback.router)
 app.include_router(meme_router)
+app.include_router(settings_router.router)
 
 
 if __name__ == "__main__":

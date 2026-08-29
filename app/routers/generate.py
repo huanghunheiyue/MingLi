@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from ..models import GenerateRequest, GenerateResponse
 from .. import storage
 from ..prompts import build_prompt
-from ..knowledge_base import list_subjects, get_context_for_subject
+from ..knowledge_base import list_subjects, get_context_for_subject, _kg
 from ..llm_client import client, parse_json_or_text
 from ..security import is_prompt_injection, prompt_injection_block_message, looks_like_hijacked_output, assess_generated_text, incomplete_error_message
 from ..rate_limit import GENERATE_LIMITER
@@ -30,10 +30,24 @@ def _client_key(request: Request) -> str:
 
 
 @router.get("/api/subjects")
-async def subjects(content_type: str = Query("couplet", alias="type")):
-    """返回该类型下可选的 subject 列表"""
-    items = list_subjects(content_type)
-    return {"content_type": content_type, "subjects": items}
+async def subjects(
+    content_type: str = Query("couplet", alias="type"),
+    type_filter: str = Query("", alias="entity_type",
+                             description="可选：历史人物/历史事件/战争/作品/地点/法律/历史时期"),
+):
+    """返回该类型下可选的 subject 列表
+
+    - 默认按 content_type（挽联/祭文/怀古诗/梗文）返回精选库主题
+    - 设置 entity_type 后追加知识图谱相关类型主题（精选库优先，其余按 KG 实体名排序）
+    """
+    items = list_subjects(content_type, type_filter=type_filter)
+    return {
+        "content_type": content_type,
+        "entity_type": type_filter,
+        "subjects": items,
+        "kg_loaded": _kg().is_loaded,
+        "kg_stats": _kg().stats if _kg().is_loaded else None,
+    }
 
 
 @router.post("/api/generate", response_model=GenerateResponse)
@@ -73,7 +87,12 @@ async def generate(req: GenerateRequest, request: Request):
         # reasoning 模型需要足够 token 生成 think + JSON，max_tokens 给到 8000
         raw = await client.chat(prompt, temperature=0.85, max_tokens=8000)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"LLM 调用失败：{e}")
+        # e 可能是 RuntimeError（如 API Key 未配置），信息已经完整；其他异常加前缀
+        msg = str(e)
+        if "API Key 未配置" in msg or "API key" in msg.lower():
+            # 业务异常，前端可识别并触发引导
+            raise HTTPException(status_code=503, detail={"error": "api_key_missing", "message": msg})
+        raise HTTPException(status_code=502, detail=f"LLM 调用失败：{msg}")
 
     # 输出质量校验
     if looks_like_hijacked_output(req.subject, raw):

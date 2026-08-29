@@ -3,6 +3,7 @@
 从 .env 读取所有配置项，支持 MiniMax / DeepSeek / 通义千问 / 豆包四家切换
 """
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -51,8 +52,14 @@ class Settings:
     HISTORY_FILE: Path = DATA_DIR / "history.json"
     FEEDBACK_FILE: Path = DATA_DIR / "feedback.json"
 
-    # 静态目录
+    # 静态目录（默认走 ROOT_DIR/static；EXE 模式下支持磁盘覆盖）
     STATIC_DIR: Path = ROOT_DIR / "static"
+    # PyInstaller onefile 模式：若 EXE 同级有 static/ 且包含 index.html，
+    # 自动改用磁盘版（覆盖打包进 EXE 的版本），便于静态资源热更新无需重新打包
+    if getattr(sys, "frozen", False):
+        _disk_static = Path(sys.executable).resolve().parent / "static"
+        if _disk_static.is_dir() and (_disk_static / "index.html").exists():
+            STATIC_DIR = _disk_static
 
     def get_provider_config(self) -> dict:
         """根据当前选择返回对应 provider 的连接参数"""

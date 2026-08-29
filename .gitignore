@@ -1,0 +1,54 @@
+# === 敏感信息：必须保护 ===
+.env
+*.env
+!.env.example
+
+# === Python 字节码/缓存 ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+.cache
+*.egg-info/
+
+# === PyInstaller / 打包产物 ===
+build/
+dist/
+*.spec.bak
+*.manifest
+
+# === 运行时数据/日志 ===
+*.log
+app.log
+server.log
+data/feedback.json
+data/history.json
+*.pid
+*.lock
+
+# === IDE / 编辑器 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === 系统文件 ===
+*.tmp
+*.bak
+*.old
+nul
+
+# === 用户数据/临时文件 ===
+rawData/relationship.json.bak
+*.sqlite3
+*.db
