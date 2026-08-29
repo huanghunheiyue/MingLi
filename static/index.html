@@ -201,8 +201,13 @@
 </section>
 <section class="result" id="result" hidden>
   <article class="result-card">
+    <div class="result-progress" id="resultProgress" hidden>
+      <div class="result-progress-bar"></div>
+    </div>
     <header class="result-header">
-      <h3 id="resultTitle"></h3>
+      <h3 id="resultTitle">
+        <span id="resultTitleText"></span><span class="loading-dots" id="loadingDots" hidden><span></span><span></span><span></span></span>
+      </h3>
       <button class="close-btn" id="closeResult">×</button>
     </header>
     <div class="result-horizontal" id="resultHorizontal" hidden></div>

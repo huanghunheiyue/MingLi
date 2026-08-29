@@ -229,7 +229,10 @@ async function submitForm(type, form) {
   // 清空旧结果
   const resultEl = document.getElementById('result');
   resultEl.hidden = false;
-  document.getElementById('resultTitle').textContent = '生成中...';
+  // 顶部 indeterminate 进度条 + 标题旁跳动小点
+  document.getElementById('resultProgress').hidden = false;
+  document.getElementById('resultTitleText').textContent = '正在落笔…';
+  document.getElementById('loadingDots').hidden = false;
   document.getElementById('resultBody').textContent = '';
   document.getElementById('resultHorizontal').hidden = true;
   document.getElementById('resultTags').innerHTML = '';
@@ -264,6 +267,10 @@ async function submitForm(type, form) {
           const ev = JSON.parse(raw);
           if (ev.error) {
             const msg = ev.error.message || ev.error;
+            // 错误：隐藏进度条
+            document.getElementById('resultProgress').hidden = true;
+            document.getElementById('loadingDots').hidden = true;
+            document.getElementById('resultTitleText').textContent = '生成失败';
             if (typeof msg === 'string' && /API Key 未配置/i.test(msg)) {
               _showApiKeyMissingGuide(msg);
             } else {
@@ -276,7 +283,10 @@ async function submitForm(type, form) {
           }
           if (ev.done) {
             meta = ev;
-            document.getElementById('resultTitle').textContent = ev.title || payload.subject;
+            // 完成：隐藏进度条 + 恢复正式标题
+            document.getElementById('resultProgress').hidden = true;
+            document.getElementById('resultTitleText').textContent = ev.title || payload.subject;
+            document.getElementById('loadingDots').hidden = true;
             // 后端已完成格式化（upper/lower/horizontal/note 拼接为可读文本），用 ev.body 替换 markdown 原文
             if (ev.body) {
               document.getElementById('resultBody').textContent = ev.body;
@@ -315,9 +325,15 @@ async function submitForm(type, form) {
     }
   } catch (e) {
     document.getElementById('resultBody').textContent = '网络错误：' + e.message;
+    document.getElementById('resultProgress').hidden = true;
+    document.getElementById('loadingDots').hidden = true;
+    document.getElementById('resultTitleText').textContent = '网络错误';
   } finally {
     btn.disabled = false;
     btn.textContent = oldText;
+    // 兜底：异常路径未隐藏进度条时统一处理
+    document.getElementById('resultProgress').hidden = true;
+    document.getElementById('loadingDots').hidden = true;
   }
 }
 
