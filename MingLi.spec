@@ -21,6 +21,7 @@ datas = [
     (str(ROOT / 'data'),   'data'),
     (str(ROOT / 'app' / 'prompts'),   'app/prompts'),
     (str(ROOT / 'app' / 'meme_data'), 'app/meme_data'),
+    (str(ROOT / 'rawData'), 'rawData'),  # 明代历史知识图谱（942 实体 / 1501 三元组 / 341 关系类型）
 ]
 
 # ---------- 隐藏导入（PyInstaller 不会自动发现子包） ----------
@@ -51,6 +52,7 @@ hiddenimports += [
     'app.variants',
     'app.llm_client',
     'app.knowledge_base',
+    'app.kg_data',         # 知识图谱加载层
     'app.prompts',
     'app.prompts.base',
     'app.prompts.couplet',
@@ -66,6 +68,7 @@ hiddenimports += [
     'app.routers.feedback',
     'app.routers.meme',
     'app.routers.meme.router',
+    'app.routers.settings',
     # urllib 隐式依赖
     'email',
     'email.message',
