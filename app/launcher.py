@@ -68,19 +68,44 @@ def _init_logger(log_path: Path) -> logging.Logger:
     return logger
 
 
-def _load_dotenv_if_exists(root: Path) -> None:
+def _load_dotenv_if_exists(root: Path) -> bool:
+    """加载 .env（位于项目根目录）；若不存在，自动从 .env.example 复制一份并返回 False。
+
+    返回：是否真的加载了一个含真实配置的 .env（False 表示首次运行需用户编辑）。
+    """
     env_file = root / ".env"
     if not env_file.exists():
-        return
+        # 自动初始化 .env（首次运行体验）
+        example = root / ".env.example"
+        if example.exists():
+            try:
+                env_file.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+                if _log:
+                    _log.warning(f"未找到 .env，已自动从 .env.example 复制创建: {env_file}")
+                    _log.warning("⚠️  请用文本编辑器打开 .env，填入你的 API Key 后重启 MingLi.exe")
+                return False
+            except Exception as e:
+                if _log:
+                    _log.error(f"自动创建 .env 失败: {e}")
+                return False
+        return False
     try:
+        has_real_key = False
         for line in env_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, _, value = line.partition("=")
-            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-    except Exception:
-        pass
+            v = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key.strip(), v)
+            # 检测四个 provider 是否有真实 key（非占位符）
+            if key.strip().endswith("_API_KEY") and v and "your-" not in v and "sk-cp-your" not in v:
+                has_real_key = True
+        return has_real_key
+    except Exception as e:
+        if _log:
+            _log.error(f"加载 .env 失败: {e}")
+        return False
 
 
 def _free_port(host: str, port: int) -> bool:
@@ -162,8 +187,13 @@ def main() -> int:
     root = _exe_root()
     log_path = root / "_server.log"
     _log = _init_logger(log_path)
-    _load_dotenv_if_exists(root)
+    has_real_key = _load_dotenv_if_exists(root)
     _log.info(f"工作目录: {root}")
+
+    if not has_real_key:
+        _log.warning("⚠️  未检测到任何可用的 API Key 配置（所有 *_API_KEY 均为空或占位符）。")
+        _log.warning("   系统仍可启动并展示界面，但点击「生成」时会报错：API Key 未配置")
+        _log.warning("   请编辑 .env 文件（位置：%s），填入真实 API Key 后重启" % (root / ".env"))
 
     if not _free_port(HOST, PORT):
         _log.warning(f"端口 {PORT} 已被占用，直接打开现有实例…")
