@@ -1,6 +1,6 @@
 """
 应用配置模块
-从 .env 读取所有配置项，支持 MiniMax / DeepSeek / 通义千问 / 豆包四家切换
+从 .env 读取所有配置项，支持 阿里云百炼 / MiniMax / DeepSeek / 通义千问 / 豆包 五家切换
 """
 import os
 import sys
@@ -16,7 +16,7 @@ class Settings:
     """统一配置"""
 
     # LLM 提供商选择
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "deepseek").lower()
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "aliyun_bailian").lower()
 
     # DeepSeek
     DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
@@ -32,6 +32,16 @@ class Settings:
     DOUBAO_API_KEY: str = os.getenv("DOUBAO_API_KEY", "")
     DOUBAO_BASE_URL: str = os.getenv("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
     DOUBAO_MODEL: str = os.getenv("DOUBAO_MODEL", "doubao-pro-32k")
+
+    # 阿里云百炼 token-plan (OpenAI 兼容端点)
+    # 订阅 Key 用量查询: https://bailian.console.aliyun.com/
+    # 注意：此端点只能用 token-plan 订阅 Key，不能用普通 API Key
+    ALIYUN_BAILIAN_API_KEY: str = os.getenv("ALIYUN_BAILIAN_API_KEY", "")
+    ALIYUN_BAILIAN_BASE_URL: str = os.getenv(
+        "ALIYUN_BAILIAN_BASE_URL",
+        "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    )
+    ALIYUN_BAILIAN_MODEL: str = os.getenv("ALIYUN_BAILIAN_MODEL", "qwen3.8-flash")
 
     # MiniMax (Token Plan 订阅 Key 必须用国内端点 api.minimaxi.com)
     # ⚠️ 国际端点 api.minimax.io 不能用 Token Plan Key（会返回 401）
@@ -87,8 +97,17 @@ class Settings:
                 "base_url": self.MINIMAX_BASE_URL,
                 "model": self.MINIMAX_MODEL,
             }
+        elif self.LLM_PROVIDER == "aliyun_bailian":
+            return {
+                "api_key": self.ALIYUN_BAILIAN_API_KEY,
+                "base_url": self.ALIYUN_BAILIAN_BASE_URL,
+                "model": self.ALIYUN_BAILIAN_MODEL,
+            }
         else:
-            raise ValueError(f"未知的 LLM_PROVIDER: {self.LLM_PROVIDER}（可选: minimax / deepseek / qwen / doubao）")
+            raise ValueError(
+                f"未知的 LLM_PROVIDER: {self.LLM_PROVIDER}"
+                "（可选: aliyun_bailian / minimax / deepseek / qwen / doubao）"
+            )
 
 
 settings = Settings()

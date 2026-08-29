@@ -7,6 +7,7 @@
 import json
 import time
 import asyncio
+import hashlib
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -20,6 +21,52 @@ from ..security import is_prompt_injection, prompt_injection_block_message, look
 from ..rate_limit import GENERATE_LIMITER
 
 router = APIRouter()
+
+# ---- 简单 LRU 缓存：5 分钟内同请求直接返回，缓解 aliyun token-plan 端点的 TTFT 排队 ----
+# key: sha256(content_type|subject|sorted_params)  value: (saved_record, expire_ts)
+_RESULT_CACHE: dict = {}
+_CACHE_TTL_SEC = 300
+
+
+def _cache_key(req) -> str:
+    params = {
+        "relation": getattr(req, "relation", None),
+        "occasion": getattr(req, "occasion", None),
+        "poem_type": getattr(req, "poem_type", None),
+        "person": getattr(req, "person", None),
+        "length": getattr(req, "length", None),
+        "author_role": getattr(req, "author_role", None),
+        "tone": getattr(req, "tone", None),
+        "length_meme": getattr(req, "meme_length", None),
+    }
+    raw = f"{req.content_type}|{req.subject}|{json.dumps(params, sort_keys=True, ensure_ascii=False)}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _cache_get(key: str):
+    item = _RESULT_CACHE.get(key)
+    if not item:
+        return None
+    record, expire_ts = item
+    if time.time() > expire_ts:
+        _RESULT_CACHE.pop(key, None)
+        return None
+    return record
+
+
+def _cache_set(key: str, record: dict):
+    _RESULT_CACHE[key] = (record, time.time() + _CACHE_TTL_SEC)
+    # 简易 LRU：超过 200 条清理过期
+    if len(_RESULT_CACHE) > 200:
+        now = time.time()
+        expired_keys = [k for k, (_, exp) in _RESULT_CACHE.items() if now > exp]
+        for k in expired_keys:
+            _RESULT_CACHE.pop(k, None)
+
+
+# ---- max_tokens: qwen3.8-flash 实测 JSON 仅 ~200 tokens，给 768 既能容纳又减少排队 TTFT ----
+_STREAM_MAX_TOKENS = 768
+_CHAT_MAX_TOKENS = 1024
 
 
 
@@ -96,6 +143,25 @@ async def generate(req: GenerateRequest, request: Request):
     if is_prompt_injection(req.subject):
         raise HTTPException(status_code=400, detail=prompt_injection_block_message("subject"))
 
+    # 缓存命中直接返回（5 分钟内同请求）
+    cache_k = _cache_key(req)
+    cached = _cache_get(cache_k)
+    if cached:
+        elapsed = int((time.time() - t0) * 1000)
+        return GenerateResponse(
+            id=cached["id"],
+            content_type=cached["content_type"],
+            subject=cached["subject"],
+            title=cached["title"],
+            body=cached["body"],
+            horizontal=cached.get("horizontal", ""),
+            tags=cached.get("tags", []),
+            sources=cached.get("sources", []),
+            note=cached.get("note", ""),
+            elapsed_ms=elapsed,
+            created_at=cached["created_at"],
+        )
+
     ctx = get_context_for_subject(req.subject)
     prompt_params = {
         "relation": req.relation,
@@ -110,8 +176,8 @@ async def generate(req: GenerateRequest, request: Request):
     prompt = build_prompt(req.content_type, ctx, req.subject, **prompt_params)
 
     try:
-        # reasoning 模型需要足够 token 生成 think + JSON，max_tokens 给到 8000
-        raw = await client.chat(prompt, temperature=0.85, max_tokens=8000)
+        # JSON 实际 ~200 tokens，给 1024 足够
+        raw = await client.chat(prompt, temperature=0.85, max_tokens=_CHAT_MAX_TOKENS)
     except Exception as e:
         # e 可能是 RuntimeError（如 API Key 未配置），信息已经完整；其他异常加前缀
         msg = str(e)
@@ -141,6 +207,8 @@ async def generate(req: GenerateRequest, request: Request):
     elapsed = int((time.time() - t0) * 1000)
     record["elapsed_ms"] = elapsed
     saved = storage.save_history(record)
+    # 写入缓存（key 已存在则覆盖 TTL）
+    _cache_set(cache_k, saved)
 
     return GenerateResponse(
         id=saved["id"],
@@ -171,6 +239,10 @@ async def generate_stream(req: GenerateRequest, request: Request):
     if is_prompt_injection(req.subject):
         raise HTTPException(status_code=400, detail=prompt_injection_block_message("subject"))
 
+    # 缓存命中：流式也直接发 done 事件（前端体验是瞬间返回）
+    cache_k = _cache_key(req)
+    cached = _cache_get(cache_k)
+
     ctx = get_context_for_subject(req.subject)
     prompt_params = {
         "relation": req.relation,
@@ -185,40 +257,48 @@ async def generate_stream(req: GenerateRequest, request: Request):
     prompt = build_prompt(req.content_type, ctx, req.subject, **prompt_params)
 
     async def event_gen():
-        buffer = []
-        used_fallback = False
         try:
-            # reasoning 模型需要足够 token 生成 think + JSON，max_tokens 给到 16000
-            async for chunk in client.stream_chat(prompt, temperature=0.85, max_tokens=16000):
-                buffer.append(chunk)
-                yield f"data: {json.dumps({'delta': chunk}, ensure_ascii=False)}\n\n"
-            full_text = "".join(buffer)
-            # Fallback: 如果流式返回内容过少（thinking 占满 tokens），自动降级到非流式 chat()
-            if len(full_text) < 50:
-                full_text = await client.chat(prompt, temperature=0.85, max_tokens=8000)
-                used_fallback = True
-                yield f"data: {json.dumps({'delta': full_text}, ensure_ascii=False)}\n\n"
-            if looks_like_hijacked_output(req.subject, full_text):
-                yield f"data: {json.dumps({'error': incomplete_error_message('hijack')}, ensure_ascii=False)}\n\n"
+            if cached:
+                # 直接 yield done（不调用 LLM）
+                yield f"data: {json.dumps({'done': True, 'id': cached['id'], 'title': cached['title'], 'body': cached['body'], 'tags': cached.get('tags', []), 'sources': cached.get('sources', []), 'cached': True}, ensure_ascii=False)}\n\n"
                 return
-            reason = assess_generated_text(full_text, min_length=20)
-            if reason:
-                yield f"data: {json.dumps({'error': incomplete_error_message(reason)}, ensure_ascii=False)}\n\n"
-                return
-            parsed = parse_json_or_text(full_text)
-            record = {
-                "content_type": req.content_type,
-                "subject": req.subject,
-                "title": parsed.get("title", f"{req.subject}·生成结果"),
-                "body": _format_body(parsed, req.content_type, full_text),
-                "horizontal": parsed.get("horizontal", ""),
-                "tags": parsed.get("tags", []),
-                "sources": parsed.get("sources", [f"知识库:{req.subject}"]),
-                "note": parsed.get("note", ""),
-            }
-            saved = storage.save_history(record)
-            yield f"data: {json.dumps({'done': True, 'id': saved['id'], 'title': saved['title'], 'body': saved['body'], 'tags': saved.get('tags', []), 'sources': saved.get('sources', [])}, ensure_ascii=False)}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+            buffer = []
+            used_fallback = False
+            try:
+                # JSON 实际 ~200 tokens，给 768 既能容纳又减少排队 TTFT
+                async for chunk in client.stream_chat(prompt, temperature=0.85, max_tokens=_STREAM_MAX_TOKENS):
+                    buffer.append(chunk)
+                    yield f"data: {json.dumps({'delta': chunk}, ensure_ascii=False)}\n\n"
+                full_text = "".join(buffer)
+                # Fallback: 如果流式返回内容过少（被截断或排队超时），自动降级到非流式 chat()
+                if len(full_text) < 50:
+                    full_text = await client.chat(prompt, temperature=0.85, max_tokens=_CHAT_MAX_TOKENS)
+                    used_fallback = True
+                    yield f"data: {json.dumps({'delta': full_text}, ensure_ascii=False)}\n\n"
+                if looks_like_hijacked_output(req.subject, full_text):
+                    yield f"data: {json.dumps({'error': incomplete_error_message('hijack')}, ensure_ascii=False)}\n\n"
+                    return
+                reason = assess_generated_text(full_text, min_length=20)
+                if reason:
+                    yield f"data: {json.dumps({'error': incomplete_error_message(reason)}, ensure_ascii=False)}\n\n"
+                    return
+                parsed = parse_json_or_text(full_text)
+                record = {
+                    "content_type": req.content_type,
+                    "subject": req.subject,
+                    "title": parsed.get("title", f"{req.subject}·生成结果"),
+                    "body": _format_body(parsed, req.content_type, full_text),
+                    "horizontal": parsed.get("horizontal", ""),
+                    "tags": parsed.get("tags", []),
+                    "sources": parsed.get("sources", [f"知识库:{req.subject}"]),
+                    "note": parsed.get("note", ""),
+                }
+                saved = storage.save_history(record)
+                _cache_set(cache_k, saved)
+                yield f"data: {json.dumps({'done': True, 'id': saved['id'], 'title': saved['title'], 'body': saved['body'], 'tags': saved.get('tags', []), 'sources': saved.get('sources', [])}, ensure_ascii=False)}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+        finally:
+            pass  # 占位：前端已通过 SSE error/done 自行清理进度条
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
