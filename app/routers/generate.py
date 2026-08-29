@@ -160,12 +160,18 @@ async def generate_stream(req: GenerateRequest, request: Request):
 
     async def event_gen():
         buffer = []
+        used_fallback = False
         try:
-            # reasoning 模型需要足够 token 生成 think + JSON，max_tokens 给到 8000
-            async for chunk in client.stream_chat(prompt, temperature=0.85, max_tokens=8000):
+            # reasoning 模型需要足够 token 生成 think + JSON，max_tokens 给到 16000
+            async for chunk in client.stream_chat(prompt, temperature=0.85, max_tokens=16000):
                 buffer.append(chunk)
                 yield f"data: {json.dumps({'delta': chunk}, ensure_ascii=False)}\n\n"
             full_text = "".join(buffer)
+            # Fallback: 如果流式返回内容过少（thinking 占满 tokens），自动降级到非流式 chat()
+            if len(full_text) < 50:
+                full_text = await client.chat(prompt, temperature=0.85, max_tokens=8000)
+                used_fallback = True
+                yield f"data: {json.dumps({'delta': full_text}, ensure_ascii=False)}\n\n"
             if looks_like_hijacked_output(req.subject, full_text):
                 yield f"data: {json.dumps({'error': incomplete_error_message('hijack')}, ensure_ascii=False)}\n\n"
                 return

@@ -143,7 +143,7 @@ class LLMClient:
         last_err: Optional[Exception] = None
         for attempt in range(self.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with httpx.AsyncClient(timeout=self.timeout, http2=False) as client:
                     resp = await client.post(url, headers=self._headers(), json=payload)
                     resp.raise_for_status()
                     data = resp.json()
@@ -175,7 +175,7 @@ class LLMClient:
             "max_tokens": max_tokens,
             "stream": True,
         }
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, http2=False) as client:
             async with client.stream("POST", url, headers=self._headers(), json=payload) as resp:
                 resp.raise_for_status()
                 # 流式处理：维护一个 buffer，遇到完整 <think>...</think> 块就跳过
@@ -294,7 +294,7 @@ async def generate_text_stream(
         "max_tokens": max_tokens,
         "stream": True,
     }
-    async with httpx.AsyncClient(timeout=client.timeout) as c:
+    async with httpx.AsyncClient(timeout=client.timeout, http2=False) as c:
         async with c.stream("POST", url, headers=client._headers(), json=payload) as resp:
             resp.raise_for_status()
             async for line in resp.aiter_lines():
